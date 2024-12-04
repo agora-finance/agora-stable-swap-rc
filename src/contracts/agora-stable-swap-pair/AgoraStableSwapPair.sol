@@ -25,25 +25,25 @@ contract AgoraStableSwapPair is AgoraStableSwapPairCore {
     /// @notice The ```token0``` function returns the address of the token0 in the pair
     /// @return _token0 The address of the token0 in the pair
     function token0() public view returns (address) {
-        return _getPointerToAgoraStableSwapStorage().token0;
+        return _getPointerToAgoraStableSwapStorage().swapStorage.token0;
     }
 
     /// @notice The ```token1``` function returns the address of the token1 in the pair
     /// @return _token1 The address of the token1 in the pair
     function token1() public view returns (address) {
-        return _getPointerToAgoraStableSwapStorage().token1;
+        return _getPointerToAgoraStableSwapStorage().swapStorage.token1;
     }
 
     /// @notice The ```token0PurchaseFee``` function returns the purchase fee for the token0 in the pair
     /// @return _token0PurchaseFee The purchase fee for the token0 in the pair
     function token0PurchaseFee() public view returns (uint256) {
-        return _getPointerToAgoraStableSwapStorage().token0PurchaseFee;
+        return _getPointerToAgoraStableSwapStorage().swapStorage.token0PurchaseFee;
     }
 
     /// @notice The ```token1PurchaseFee``` function returns the purchase fee for the token1 in the pair
     /// @return _token1PurchaseFee The purchase fee for the token1 in the pair
     function token1PurchaseFee() public view returns (uint256) {
-        return _getPointerToAgoraStableSwapStorage().token1PurchaseFee;
+        return _getPointerToAgoraStableSwapStorage().swapStorage.token1PurchaseFee;
     }
 
     /// @notice The ```oracleAddress``` function returns the address of the oracle for the pair
@@ -55,25 +55,25 @@ contract AgoraStableSwapPair is AgoraStableSwapPairCore {
     /// @notice The ```isPaused``` function returns whether the pair is paused
     /// @return _isPaused Whether the pair is paused
     function isPaused() public view returns (bool) {
-        return _getPointerToAgoraStableSwapStorage().isPaused;
+        return _getPointerToAgoraStableSwapStorage().swapStorage.isPaused;
     }
 
     /// @notice The ```token0OverToken1Price``` function returns the price of the pair expressed as token0 over token1
     /// @return _token0OverToken1Price The price of the pair expressed as token0 over token1
     function token0OverToken1Price() public view returns (uint256) {
-        return _getPointerToAgoraStableSwapStorage().token0OverToken1Price;
+        return _getPointerToAgoraStableSwapStorage().swapStorage.token0OverToken1Price;
     }
 
     /// @notice The ```reserve0``` function returns the reserve of the token0 in the pair
     /// @return _reserve0 The reserve of the token0 in the pair
     function reserve0() public view returns (uint256) {
-        return _getPointerToAgoraStableSwapStorage().reserve0;
+        return _getPointerToAgoraStableSwapStorage().swapStorage.reserve0;
     }
 
     /// @notice The ```reserve1``` function returns the reserve of the token1 in the pair
     /// @return _reserve1 The reserve of the token1 in the pair
     function reserve1() public view returns (uint256) {
-        return _getPointerToAgoraStableSwapStorage().reserve1;
+        return _getPointerToAgoraStableSwapStorage().swapStorage.reserve1;
     }
 
     /// @notice The ```lastBlock``` function returns the last block number that the pair was updated
@@ -92,21 +92,22 @@ contract AgoraStableSwapPair is AgoraStableSwapPairCore {
         uint256 _amountIn,
         address[] memory _path
     ) public view returns (uint256[] memory _amounts) {
-        AgoraStableSwapStorage memory _storage = _getPointerToAgoraStableSwapStorage();
+        SwapStorage memory _storage = _getPointerToAgoraStableSwapStorage().swapStorage;
         uint256 _token0OverToken1Price = getPrice();
 
         // Checks: path length is 2 && path must contain token0 and token1 only
         _requireValidPath({ _path: _path, _token0: _storage.token0, _token1: _storage.token1 });
 
-        return
-            _getAmountsOut({
-                _amountIn: _amountIn,
-                _path: _path,
-                _token0: _storage.token0,
-                _token0PurchaseFee: _storage.token0PurchaseFee,
-                _token1PurchaseFee: _storage.token1PurchaseFee,
-                _token0OverToken1Price: _token0OverToken1Price
-            });
+        // instantiate return variables
+        _amounts = new uint256[](2);
+        _amounts[0] = _amountIn;
+
+        // path[1] represents our tokenOut
+        if (_path[1] == _storage.token0) {
+            _amounts[1] = _getAmount0Out(_amountIn, _token0OverToken1Price, _storage.token0PurchaseFee);
+        } else {
+            _amounts[1] = _getAmount1Out(_amountIn, _token0OverToken1Price, _storage.token1PurchaseFee);
+        }
     }
 
     /// @notice The ```getAmountsIn``` function calculates the amount of input tokensIn required for a given amount tokensOut
@@ -119,20 +120,22 @@ contract AgoraStableSwapPair is AgoraStableSwapPairCore {
         uint256 _amountOut,
         address[] memory _path
     ) public view returns (uint256[] memory _amounts) {
-        AgoraStableSwapStorage memory _storage = _getPointerToAgoraStableSwapStorage();
+        SwapStorage memory _storage = _getPointerToAgoraStableSwapStorage().swapStorage;
         uint256 _token0OverToken1Price = getPrice();
 
         // Checks: path length is 2 && path must contain token0 and token1 only
         _requireValidPath({ _path: _path, _token0: _storage.token0, _token1: _storage.token1 });
 
-        return
-            _getAmountsIn({
-                _amountOut: _amountOut,
-                _path: _path,
-                _token0: _storage.token0,
-                _token0PurchaseFee: _storage.token0PurchaseFee,
-                _token1PurchaseFee: _storage.token1PurchaseFee,
-                _token0OverToken1Price: _token0OverToken1Price
-            });
+        // instantiate return variables
+        _amounts = new uint256[](2);
+        // set the amountOut
+        _amounts[1] = _amountOut;
+
+        // path[0] represents our tokenIn
+        if (_path[0] == _storage.token0) {
+            _amounts[0] = _getAmount0In(_amountOut, _token0OverToken1Price, _storage.token0PurchaseFee);
+        } else {
+            _amounts[0] = _getAmount1In(_amountOut, _token0OverToken1Price, _storage.token1PurchaseFee);
+        }
     }
 }
