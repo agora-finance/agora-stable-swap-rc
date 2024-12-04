@@ -251,6 +251,7 @@ contract AgoraStableSwapPairCore is
     /// @param _to The address to send the tokens to
     /// @param _data The data to send to the callback
     function swap(uint256 _amount0Out, uint256 _amount1Out, address _to, bytes memory _data) public nonreentrant {
+        // ! TODO: check wether the pair is paused?
         _requireSenderIsRole(APPROVED_SWAPPER);
 
         // Checks: input sanitation, force one amountOut to be 0, and the other to be > 0
@@ -266,8 +267,8 @@ contract AgoraStableSwapPairCore is
         if (_amount0Out > _storage.reserve0 || _amount1Out > _storage.reserve1) revert InsufficientLiquidity();
 
         // Send the tokens (you can only send 1)
-        if (_amount0Out > 0) IERC20(_storage.token0).safeTransfer(_to, _amount0Out);
-        else IERC20(_storage.token1).safeTransfer(_to, _amount1Out);
+        if (_amount0Out > 0) IERC20(_storage.token0).safeTransfer({ to: _to, value: _amount0Out });
+        else IERC20(_storage.token1).safeTransfer({ to: _to, value: _amount1Out });
 
         // Execute the callback (if relevant)
         if (_data.length > 0) {
@@ -389,7 +390,7 @@ contract AgoraStableSwapPairCore is
         if (_amountIn > _amountInMax) revert AmountInMaxExceeded();
 
         // Interactions: transfer tokens from msg.sender to this contract
-        IERC20(_path[1]).safeTransferFrom(msg.sender, address(this), _amountIn);
+        IERC20(_path[1]).safeTransferFrom({ from: msg.sender, to: address(this), value: _amountIn });
 
         // Effects: swap tokens
         if (_path[1] == _storage.token0) {
@@ -546,7 +547,7 @@ contract AgoraStableSwapPairCore is
             revert InvalidTokenAddress({ token: _tokenAddress });
         }
 
-        IERC20(_tokenAddress).safeTransfer(_configStorage.tokenReceiverAddress, _amount);
+        IERC20(_tokenAddress).safeTransfer({ to: _configStorage.tokenReceiverAddress, value: _amount });
 
         // Update reserves
         _sync({
@@ -573,7 +574,7 @@ contract AgoraStableSwapPairCore is
         if (_tokenAddress != _storage.token0 && _tokenAddress != _storage.token1) {
             revert InvalidTokenAddress({ token: _tokenAddress });
         }
-        IERC20(_tokenAddress).safeTransferFrom(msg.sender, address(this), _amount);
+        IERC20(_tokenAddress).safeTransferFrom({ from: msg.sender, to: address(this), value: _amount });
 
         // Update reserves
         _sync({
